@@ -1,0 +1,12 @@
+*.pyc
+*.pyo
+
+*.swp
+*.swo
+
+build/*
+*.egg-info
+
+local_settings.py
+
+static/admin

@@ -1,0 +1,35 @@
+server {
+        listen IPADDRESS:PORT;
+	    server_name example.com;
+        rewrite ^/(.*) http://www.example.com/$1 permanent;
+}
+
+server {
+        listen IP_ADDRESS:PORT;
+	    server_name www.example.com;
+
+        location /static/ {
+	        root /home/user/django-project;
+            # if asset versioning is used
+            #if ($query_string) {
+            #    expires max;
+            #}
+        }
+
+        location / {
+            proxy_pass_header Server;
+            proxy_set_header Host $http_host;
+            proxy_redirect off;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Scheme $scheme;
+            proxy_connect_timeout 10;
+            proxy_read_timeout 10;
+            proxy_pass http://PROXY_IP_ADDRESS:PROXY_PORT/;
+        }
+
+        access_log /home/user/logs/django-project-access.log;
+        error_log /home/user/logs/django-project-error.log;
+
+        # what to serve if upstream is not available or crashes
+        error_page 500 502 503 504 /static/50x.html;
+}

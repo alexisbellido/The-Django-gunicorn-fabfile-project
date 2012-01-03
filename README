@@ -1,0 +1,92 @@
+The Django gunicorn fabfile project
+======================================
+
+This is a bare Django project that includes a Fabric file, commonly known as a fabfile, to setup an Ubuntu 11.10 server with the following environment:
+
+- Nginx to serve static files,
+- gunicorn to serve a Django project,
+- Python 2.7.2, which is the version in Ubuntu 11.10,
+- Django 1.3.1,
+- PostgreSQL 9.1 and pyscopg2 2.4.1 (which is compatible with the test framework in Django 1.3.1),
+- git,
+- upstart to easily start and stop the Django project.
+
+The fabfile can create a production ready environment and optionally an staging environment, which is highly recommended.
+
+All the project files are cloned from a git repository to a temporal directory, which can be used by staging, and rsynced to a production directory.
+
+The fabfile has been tested with Fabric >= 1.3.1.
+
+How to use
+===============
+
+The two hosts interacting in the basic usage scenario are the deployer, which is the GNU/Linux workstation on which you will run the fabfile, and the target, which is the GNU/Linux server where the Django project will be setup when the fabfile is run. There are other hosts involved, like the one hosting the git repository with your code, but the deployer and the target are the ones where you have full control, including ssh root access.
+
+This fabfile has been developed and tested using Ubuntu 11.10 and the standard software packages that are available via the Ubuntu repositories and PyPi, but it could be adapted to run with other GNU/Linux distributions.
+
+To start, follow these steps:
+
+1. Download or git clone this project to the deployer,
+
+2. Install Fabric, ideally while in a virtualenv, in the deployer  with: 
+pip install Fabric
+
+3. Make sure the target is running Ubuntu 11.10 (unless you want to modify the fabfile to make it work with other versions or distributions), openssh-server and has a user with sudo permission. Ideally you should have ssh key authentication working between the deployer and the target, and between the target and the git host.
+
+4. Now you have two choices, copy some files from this project to your own Django project and make some changes or start building your own Django project on top of this template. Either way will take you to the same place.
+
+4a. To copy this project to your own Django project, you just need to copy the file fabfile.py and the directory deploy, both in the root of this project, to the root of your project and then add the following at the end of your project's settings.py:
+
+# Use local_settings.py to override settings.
+# This file should be outside of control version. 
+# Copy local_settings_template.py as a starting point.
+try:
+	    from local_settings import *
+except ImportError:
+	    pass
+
+4b. To start building your project on top of this one change the SECRET_KEY in settings.py to make it unique for your project and proceed to step 5.
+
+5. Copy local_settings_template.py from the root of this project to some directory in the deployer and adapt for your project, feel free to change the name of the file as the full path will be later used in the PROJECT_STAGING_SETTINGS_PATH constant in the fabfile.py configuration section.
+
+There are some important points to notice in the local_settings_template.py. DEBUG is initially set to True and conditionals based on the constant are used to make changes for either staging or production. I assume that DEBUG will be True when running in staging and False when running in production. In local_settings_template.py there is a commented piece of code showing how to add paths to the PYTHONPATH, for adding applications to your project, based on the value of DEBUG. A similar logic is used for setting up staging and production databases.
+
+Modify INSTALLED_APPS as needed. For now the fabfile doesn't support running Django's syncdb and supposes you have a database already setup for the apps that you need.
+
+Finally, ROOT_URLCONF is set to simply 'urls', to avoid depending on the project name. Django shouldn't have any problems with this.
+
+6. Change to your project's directory and edit the required constants in fabfile.py; they are below the comment #### START OF CONFIGURATION ####. There are some comments to guide you.
+
+7. Now it's time to run the fabfile to start setting up the target. Notice that user and host in the following commands refer to the user with sudo permission in the target and that host is the IP or hostname (public or as defined in your deployer's /etc/hosts).
+
+Still in your project's directory, decide which IP addresses and ports you will use for staging and production. The IP is usually the same for both. Production will usually run on port 80 and staging can be anywhere else; I like putting it on 81. You can omit the staging parameters and now staging site will be enabled, but still a staging directory will be created for the project files. The mirror parameter is used if you want to use one of PyPi's mirrors.
+
+Run these two commands on the deployer with the appropiate user, host, IP addresses and ports for the target:
+
+fab -H user@host setup:mirror=y,ip=192.168.0.181,port=80,staging_ip=192.168.0.181,staging_port=81
+fab -H user@host start_project:update_settings=y,staging=y
+
+Keep an eye on the prompt for the sudo password and, possibly, the git repository password. These should appear right after you run each command so you can enter the password and go grab a coffee while the process works. The first command, setup, usually takes longer (I counted 15 minutes in my test servers); the start_project command depends on how big your git repository, for a medium project is very quick.
+
+That should be all.
+
+Staging can be accessed at http://PROJECT_DOMAIN_STAGING:staging_port
+Production can be accessed at http://PROJECT_DOMAIN:port
+
+staging_port and port are the same used in the commands above. PROJECT_DOMAIN and PROJECT_DOMAIN_STAGING are defined in the fabfile configuration.
+
+TODO
+==========
+
+- Put fabfile settings in a separe module or probably use the project's local_settings.py.
+- Distribute via PyPi.
+- Make the project generic to work with other versions of Ubuntu and Python.
+- Add support for other version control systems.
+- Add support for PyPi mirrors in setup_server function. 
+- Avoid duplication of virtualenvwrapper lines .basrc and .bash_profile.
+- Support for Django test framework.
+- Support for easier commit and push in the deploy function.
+- Support for easily adding and setting up Django applications.
+- Support for syncdb and database distribution. Is it needed or better left to do manually?
+- Memcached setup.
+- Varnish setup.
