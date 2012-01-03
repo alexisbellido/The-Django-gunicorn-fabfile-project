@@ -53,12 +53,12 @@ PROJECT_GUNICORN_NUM_WORKERS = 3
 PROJECT_GUNICORN_BIND_IP = '127.0.0.1'
 PROJECT_GUNICORN_BIND_PORT = '8000'
 
-STAGING_SUFFIX = '-staging'
-PROJECT_NAME_STAGING = PROJECT_NAME + STAGING_SUFFIX
-PROJECT_DESCRIPTIVE_NAME_STAGING = PROJECT_DESCRIPTIVE_NAME + STAGING_SUFFIX
-PROJECT_DIR_STAGING = PROJECT_DIR + STAGING_SUFFIX
-PROJECT_LOGDIR_STAGING = PROJECT_LOGDIR + STAGING_SUFFIX
-PROJECT_SCRIPT_NAME_STAGING = PROJECT_SCRIPT_NAME + STAGING_SUFFIX
+STAGING_SUFFIX = 'staging'
+PROJECT_NAME_STAGING = PROJECT_NAME + '_' + STAGING_SUFFIX
+PROJECT_DESCRIPTIVE_NAME_STAGING = PROJECT_DESCRIPTIVE_NAME + '_' + STAGING_SUFFIX
+PROJECT_DIR_STAGING = PROJECT_DIR + '_' + STAGING_SUFFIX
+PROJECT_LOGDIR_STAGING = PROJECT_LOGDIR + '_' + STAGING_SUFFIX
+PROJECT_SCRIPT_NAME_STAGING = PROJECT_SCRIPT_NAME + '-' + STAGING_SUFFIX
 PROJECT_DOMAIN_STAGING = 'example-staging.com'
 PROJECT_GUNICORN_LOGLEVEL_STAGING = 'debug'
 PROJECT_GUNICORN_NUM_WORKERS_STAGING = 3
@@ -213,9 +213,9 @@ def put_config_files(ip='', port='', staging_ip='', staging_port=''):
 
     with cd('/tmp/deploy/'):
         if staging:
-            run('cp run-project run-project%s' % STAGING_SUFFIX)
-            run('cp etc/nginx/sites-available/django-project etc/nginx/sites-available/django-project%s' % STAGING_SUFFIX)
-            run('cp etc/init/django-project.conf etc/init/django-project%s.conf' % STAGING_SUFFIX)
+            run('cp run-project run-project-%s' % STAGING_SUFFIX)
+            run('cp etc/nginx/sites-available/django-project etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX)
+            run('cp etc/init/django-project.conf etc/init/django-project-%s.conf' % STAGING_SUFFIX)
 
         sed('run-project', '^LOGFILE.*', 'LOGFILE=%s/%s' % (PROJECT_LOGDIR, PROJECT_LOG_GUNICORN)) 
         sed('run-project', '^LOGLEVEL.*', 'LOGLEVEL=%s' % PROJECT_GUNICORN_LOGLEVEL) 
@@ -251,29 +251,29 @@ def put_config_files(ip='', port='', staging_ip='', staging_port=''):
         	sudo('ln -s /lib/init/upstart-job /etc/init.d/%s' % PROJECT_NAME)
 
         if staging:
-            sed('run-project%s' % STAGING_SUFFIX, '^LOGFILE.*', 'LOGFILE=%s/%s' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_GUNICORN)) 
-            sed('run-project%s' % STAGING_SUFFIX, '^LOGLEVEL.*', 'LOGLEVEL=%s' % PROJECT_GUNICORN_LOGLEVEL_STAGING) 
-            sed('run-project%s' % STAGING_SUFFIX, '^NUM_WORKERS.*', 'NUM_WORKERS=%s' % PROJECT_GUNICORN_NUM_WORKERS_STAGING) 
-            sed('run-project%s' % STAGING_SUFFIX, '^BIND_ADDRESS.*', 'BIND_ADDRESS=%s' % PROJECT_GUNICORN_BIND_ADDRESS_STAGING) 
-            sed('run-project%s' % STAGING_SUFFIX, '^USER.*', 'USER=%s' % PROJECT_USER)
-            sed('run-project%s' % STAGING_SUFFIX, '^GROUP.*', 'GROUP=%s' % PROJECT_USER)
-            sed('run-project%s' % STAGING_SUFFIX, '^PROJECTDIR.*', 'PROJECTDIR=%s' % PROJECT_DIR_STAGING)
-            sed('run-project%s' % STAGING_SUFFIX, '^PROJECTENV.*', 'PROJECTENV=/home/%s/.virtualenvs/%s' % (PROJECT_USER, PROJECT_NAME_STAGING)) 
+            sed('run-project-%s' % STAGING_SUFFIX, '^LOGFILE.*', 'LOGFILE=%s/%s' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_GUNICORN)) 
+            sed('run-project-%s' % STAGING_SUFFIX, '^LOGLEVEL.*', 'LOGLEVEL=%s' % PROJECT_GUNICORN_LOGLEVEL_STAGING) 
+            sed('run-project-%s' % STAGING_SUFFIX, '^NUM_WORKERS.*', 'NUM_WORKERS=%s' % PROJECT_GUNICORN_NUM_WORKERS_STAGING) 
+            sed('run-project-%s' % STAGING_SUFFIX, '^BIND_ADDRESS.*', 'BIND_ADDRESS=%s' % PROJECT_GUNICORN_BIND_ADDRESS_STAGING) 
+            sed('run-project-%s' % STAGING_SUFFIX, '^USER.*', 'USER=%s' % PROJECT_USER)
+            sed('run-project-%s' % STAGING_SUFFIX, '^GROUP.*', 'GROUP=%s' % PROJECT_USER)
+            sed('run-project-%s' % STAGING_SUFFIX, '^PROJECTDIR.*', 'PROJECTDIR=%s' % PROJECT_DIR_STAGING)
+            sed('run-project-%s' % STAGING_SUFFIX, '^PROJECTENV.*', 'PROJECTENV=/home/%s/.virtualenvs/%s' % (PROJECT_USER, PROJECT_NAME_STAGING)) 
 
-            sed('etc/nginx/sites-available/django-project%s' % STAGING_SUFFIX, 'listen.*', 'listen %s:%s;' % (staging_ip, staging_port)) 
-            sed('etc/nginx/sites-available/django-project%s' % STAGING_SUFFIX, 'proxy_pass http.*', 'proxy_pass http://%s:%s/;' % (PROJECT_GUNICORN_BIND_IP_STAGING, PROJECT_GUNICORN_BIND_PORT_STAGING)) 
-            sed('etc/nginx/sites-available/django-project%s' % STAGING_SUFFIX, 'example\.com', '%s' % PROJECT_DOMAIN_STAGING) 
-            sed('etc/nginx/sites-available/django-project%s' % STAGING_SUFFIX, 'root.*', 'root %s;' % PROJECT_DIR_STAGING) 
-            sed('etc/nginx/sites-available/django-project%s' % STAGING_SUFFIX, 'access_log.*', 'access_log %s/%s;' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_NGINX_ACCESS)) 
-            sed('etc/nginx/sites-available/django-project%s' % STAGING_SUFFIX, 'error_log.*', 'access_log %s/%s;' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_NGINX_ERROR)) 
+            sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'listen.*', 'listen %s:%s;' % (staging_ip, staging_port)) 
+            sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'proxy_pass http.*', 'proxy_pass http://%s:%s/;' % (PROJECT_GUNICORN_BIND_IP_STAGING, PROJECT_GUNICORN_BIND_PORT_STAGING)) 
+            sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'example\.com', '%s' % PROJECT_DOMAIN_STAGING) 
+            sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'root.*', 'root %s;' % PROJECT_DIR_STAGING) 
+            sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'access_log.*', 'access_log %s/%s;' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_NGINX_ACCESS)) 
+            sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'error_log.*', 'access_log %s/%s;' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_NGINX_ERROR)) 
             
-            sed('etc/init/django-project%s.conf' % STAGING_SUFFIX, '^description.*', 'description "%s"' % PROJECT_DESCRIPTIVE_NAME_STAGING) 
-            sed('etc/init/django-project%s.conf' % STAGING_SUFFIX, '^exec.*', 'exec /home/%s/%s' % (PROJECT_USER, PROJECT_SCRIPT_NAME_STAGING)) 
+            sed('etc/init/django-project-%s.conf' % STAGING_SUFFIX, '^description.*', 'description "%s"' % PROJECT_DESCRIPTIVE_NAME_STAGING) 
+            sed('etc/init/django-project-%s.conf' % STAGING_SUFFIX, '^exec.*', 'exec /home/%s/%s' % (PROJECT_USER, PROJECT_SCRIPT_NAME_STAGING)) 
 
-            run('cp /tmp/deploy/run-project%s /home/%s/%s' % (STAGING_SUFFIX, PROJECT_USER, PROJECT_SCRIPT_NAME_STAGING))
+            run('cp /tmp/deploy/run-project-%s /home/%s/%s' % (STAGING_SUFFIX, PROJECT_USER, PROJECT_SCRIPT_NAME_STAGING))
             run('chmod u+x /home/%s/%s' % (PROJECT_USER, PROJECT_SCRIPT_NAME_STAGING)) 
-            sudo('cp /tmp/deploy/etc/nginx/sites-available/django-project%s /etc/nginx/sites-available/%s' % (STAGING_SUFFIX, PROJECT_NAME_STAGING))
-            sudo('cp /tmp/deploy/etc/init/django-project%s.conf /etc/init/%s.conf' % (STAGING_SUFFIX, PROJECT_NAME_STAGING))
+            sudo('cp /tmp/deploy/etc/nginx/sites-available/django-project-%s /etc/nginx/sites-available/%s' % (STAGING_SUFFIX, PROJECT_NAME_STAGING))
+            sudo('cp /tmp/deploy/etc/init/django-project-%s.conf /etc/init/%s.conf' % (STAGING_SUFFIX, PROJECT_NAME_STAGING))
             
             if not exists('/etc/nginx/sites-enabled/%s' % PROJECT_NAME_STAGING):
             	sudo('ln -s /etc/nginx/sites-available/%s /etc/nginx/sites-enabled/%s' % (PROJECT_NAME_STAGING, PROJECT_NAME_STAGING))
