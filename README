@@ -75,9 +75,14 @@ Production can be accessed at http://PROJECT_DOMAIN:port
 
 staging_port and port are the same used in the commands above. PROJECT_DOMAIN and PROJECT_DOMAIN_STAGING are defined in the fabfile configuration.
 
+8. If you need to start all over again and removing the staging and production environments you can use the clean function:
+
+fab -H user@host clean
+
 TODO
 ==========
 
+- A function to clean an interrupted setup.
 - Put fabfile settings in a separe module or probably use the project's local_settings.py.
 - Distribute via PyPi.
 - Make the project generic to work with other versions of Ubuntu and Python.

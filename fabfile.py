@@ -287,6 +287,36 @@ def put_apps():
     # TODO install or update apps needed by the project, you should add your apps with this function
     pass
 
+def clean():
+    with settings(warn_only=True):
+        sudo('service nginx stop')
+        result = sudo('service %s stop' % PROJECT_NAME)
+    if result.failed:
+        warn( "%s was not running." % PROJECT_NAME)
+
+    with settings(warn_only=True):
+        result = sudo('service %s stop' % PROJECT_NAME_STAGING)
+    if result.failed:
+        warn( "%s was not running." % PROJECT_NAME_STAGING)
+
+    for name in (PROJECT_NAME, PROJECT_NAME_STAGING):
+        sudo('rmvirtualenv %s' % name)
+
+    with settings(warn_only=True):
+        for dir in (PROJECT_DIR, PROJECT_DIR_STAGING, PROJECT_LOGDIR, PROJECT_LOGDIR_STAGING):
+            sudo('rm -rf %s' % dir)
+
+        sudo('rm /home/%s/%s' % (PROJECT_USER, PROJECT_SCRIPT_NAME))
+        sudo('rm /etc/nginx/sites-enabled/%s' % PROJECT_NAME)
+        sudo('rm /etc/nginx/sites-available/%s' % PROJECT_NAME)
+        sudo('rm /etc/init/%s.conf' % PROJECT_NAME)
+        sudo('rm /etc/init.d/%s' % PROJECT_NAME)
+        sudo('rm /home/%s/%s' % (PROJECT_USER, PROJECT_SCRIPT_NAME_STAGING))
+        sudo('rm /etc/nginx/sites-enabled/%s' % PROJECT_NAME_STAGING)
+        sudo('rm /etc/nginx/sites-available/%s' % PROJECT_NAME_STAGING)
+        sudo('rm /etc/init/%s.conf' % PROJECT_NAME_STAGING)
+        sudo('rm /etc/init.d/%s' % PROJECT_NAME_STAGING)
+
 def restart_project(staging=''):
     sudo('service nginx restart')
 
