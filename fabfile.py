@@ -121,6 +121,8 @@ def setup_server(mirror=''):
     # fixes Warning: cannot find svn location for distribute==0.6.16dev-r0
 	sudo('pip install distribute --upgrade')
 
+	sudo('chown -R %(PROJECT_USER)s:%(PROJECT_USER)s /home/%(PROJECT_USER)s/.virtualenvs' % {'PROJECT_USER': PROJECT_USER})
+
     # TODO check if lines are already there to avoid duplication
 	run('echo "export WORKON_HOME=$HOME/.virtualenvs" >> /home/%s/.bash_profile' % PROJECT_USER)
 	run('echo "source /usr/local/bin/virtualenvwrapper.sh" >> /home/%s/.bash_profile' % PROJECT_USER)
@@ -128,8 +130,6 @@ def setup_server(mirror=''):
 	# need this for interactive shell
 	run('echo "export WORKON_HOME=$HOME/.virtualenvs" >> /home/%s/.bashrc' % PROJECT_USER)
 	run('echo "source /usr/local/bin/virtualenvwrapper.sh" >> /home/%s/.bashrc' % PROJECT_USER)
-
-	sudo('chown -R %(PROJECT_USER)s:%(PROJECT_USER)s /home/%(PROJECT_USER)s/.virtualenvs' % {'PROJECT_USER': PROJECT_USER})
 
 def setup_django(mirror=''):
     create_log_directories()
@@ -231,7 +231,7 @@ def put_config_files(ip='', port='', staging_ip='', staging_port=''):
         sed('etc/nginx/sites-available/django-project', 'example\.com', '%s' % PROJECT_DOMAIN) 
         sed('etc/nginx/sites-available/django-project', 'root.*', 'root %s;' % PROJECT_DIR) 
         sed('etc/nginx/sites-available/django-project', 'access_log.*', 'access_log %s/%s;' % (PROJECT_LOGDIR, PROJECT_LOG_NGINX_ACCESS)) 
-        sed('etc/nginx/sites-available/django-project', 'error_log.*', 'access_log %s/%s;' % (PROJECT_LOGDIR, PROJECT_LOG_NGINX_ERROR)) 
+        sed('etc/nginx/sites-available/django-project', 'error_log.*', 'error_log %s/%s;' % (PROJECT_LOGDIR, PROJECT_LOG_NGINX_ERROR)) 
         
         sed('etc/init/django-project.conf', '^description.*', 'description "%s"' % PROJECT_DESCRIPTIVE_NAME) 
         sed('etc/init/django-project.conf', '^exec.*', 'exec /home/%s/%s' % (PROJECT_USER, PROJECT_SCRIPT_NAME)) 
@@ -265,7 +265,7 @@ def put_config_files(ip='', port='', staging_ip='', staging_port=''):
             sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'example\.com', '%s' % PROJECT_DOMAIN_STAGING) 
             sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'root.*', 'root %s;' % PROJECT_DIR_STAGING) 
             sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'access_log.*', 'access_log %s/%s;' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_NGINX_ACCESS)) 
-            sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'error_log.*', 'access_log %s/%s;' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_NGINX_ERROR)) 
+            sed('etc/nginx/sites-available/django-project-%s' % STAGING_SUFFIX, 'error_log.*', 'error_log %s/%s;' % (PROJECT_LOGDIR_STAGING, PROJECT_LOG_NGINX_ERROR)) 
             
             sed('etc/init/django-project-%s.conf' % STAGING_SUFFIX, '^description.*', 'description "%s"' % PROJECT_DESCRIPTIVE_NAME_STAGING) 
             sed('etc/init/django-project-%s.conf' % STAGING_SUFFIX, '^exec.*', 'exec /home/%s/%s' % (PROJECT_USER, PROJECT_SCRIPT_NAME_STAGING)) 
