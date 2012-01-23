@@ -348,3 +348,20 @@ def start_project(update_settings='', staging=''):
     # TODO install or update apps needed by the project, you should add your apps with this function
     # put_apps()
     restart_project(staging)
+
+def commit(commit_message, push='n'):
+    """ add, commit and push files for the project and extra apps"""
+    for app in EXTRA_APPS:
+        with cd(app['app_dir']):
+            with settings(hide('warnings'), warn_only=True):
+                local("git add .")
+                local("git commit -m '%s'" % commit_message)
+                if push == 'y':
+                    local("git push")
+            
+    with cd(PROJECT_DIR):
+        with settings(hide('warnings'), warn_only=True):
+            local("git add .")
+            local("git commit -m '%s'" % commit_message)
+            if push == 'y':
+                local("git push")
