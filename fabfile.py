@@ -28,6 +28,7 @@ from fabric.contrib.files import exists, sed, comment
 from fabric.contrib.files import append as fabappend
 from fabric.contrib.console import confirm
 from fabric.utils import warn
+from fabric.context_managers import hide
 
 import string, random
 
@@ -99,6 +100,10 @@ PIP_VENV_PACKAGES=('psycopg2==2.4.1',
 				   'Fabric',
 				   'docutils',
 		     	  )
+
+EXTRA_APPS = (
+                {'app_name': 'znb_blog', 'app_dir': '/home/alexis/djapps/django-znb-blog'},
+             )
 
 #### END OF CONFIGURATION ####
 

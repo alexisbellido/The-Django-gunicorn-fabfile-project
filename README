@@ -79,6 +79,12 @@ staging_port and port are the same used in the commands above. PROJECT_DOMAIN an
 
 fab -H user@host clean
 
+9. If you are working with a project and apps hosted in different repositories you will be constantly be editing, commiting and pushing files in all of them. For those case the commit function will help you to simplify the task. Configure EXTRA_APPS with the corresponding app names and directories and call the command like this:
+
+fab commit:'the commit message here','y'
+
+The first parameter is the commit message that will be used for all repositories. The second parameter is optional and tells Fabric to push the commit, its default value is no ('n').
+
 TODO
 ==========
 
@@ -90,6 +96,9 @@ TODO
 - Add support for PyPi mirrors in setup_server function. 
 - Avoid duplication of virtualenvwrapper lines .basrc and .bash_profile.
 - Support for Django test framework.
+- setup git user and email with git config before starting with commit/push, using
+  git config --global user.name "Your Name"
+  git config --global user.email you@example.com
 - Support for easier commit and push in the deploy function.
 - Support for easily adding and setting up Django applications.
 - Support for syncdb and database distribution. Is it needed or better left to do manually?
