@@ -352,16 +352,14 @@ def start_project(update_settings='', staging=''):
 def commit(commit_message, push='n'):
     """ add, commit and push files for the project and extra apps"""
     for app in EXTRA_APPS:
-        with cd(app['app_dir']):
-            with settings(hide('warnings'), warn_only=True):
-                local("git add .")
-                local("git commit -m '%s'" % commit_message)
-                if push == 'y':
-                    local("git push")
-            
-    with cd(PROJECT_DIR):
         with settings(hide('warnings'), warn_only=True):
-            local("git add .")
-            local("git commit -m '%s'" % commit_message)
+            print "Committing changes to %s " % app['app_dir']
+            local("cd %s && git add . && git commit -m '%s'" % (app['app_dir'], commit_message))
             if push == 'y':
-                local("git push")
+                local("cd %s && git push" % app['app_dir'])
+            
+    with settings(hide('warnings'), warn_only=True):
+        print "Committing changes to %s " % PROJECT_DIR_STAGING
+        local("cd %s && git add . && git commit -m '%s'" % (PROJECT_DIR_STAGING, commit_message))
+        if push == 'y':
+            local("cd %s && git push" % PROJECT_DIR_STAGING)
