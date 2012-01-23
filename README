@@ -79,11 +79,11 @@ staging_port and port are the same used in the commands above. PROJECT_DOMAIN an
 
 fab -H user@host clean
 
-9. If you are working with a project and apps hosted in different repositories you will be constantly be editing, commiting and pushing files in all of them. For those case the commit function will help you to simplify the task. Configure EXTRA_APPS with the corresponding app names and directories and call the command like this:
+9. If you are working with a project and applications hosted in different repositories you will be constantly editing, commiting and pushing files in all of them. For those cases the commit function (git specific for now) will help to simplify the task. Configure EXTRA_APPS with the corresponding names and directories and call the command like this:
 
 fab commit:'the commit message here','y'
 
-The first parameter is the commit message that will be used for all repositories. The second parameter is optional and tells Fabric to push the commit, its default value is no ('n').
+The first parameter is the commit message that will be used for all repositories. The second parameter is optional and tells Fabric to push the commit, its default value is no ('n'). The function runs local commands so there's no need to user@host.
 
 TODO
 ==========
