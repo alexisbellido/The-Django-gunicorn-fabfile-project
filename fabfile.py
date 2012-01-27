@@ -126,7 +126,8 @@ def setup_server(mirror=''):
     # fixes Warning: cannot find svn location for distribute==0.6.16dev-r0
 	sudo('pip install distribute --upgrade')
 
-	sudo('chown -R %(PROJECT_USER)s:%(PROJECT_USER)s /home/%(PROJECT_USER)s/.virtualenvs' % {'PROJECT_USER': PROJECT_USER})
+        with settings(hide('warnings'), warn_only=True):
+	    sudo('chown -R %(PROJECT_USER)s:%(PROJECT_USER)s /home/%(PROJECT_USER)s/.virtualenvs' % {'PROJECT_USER': PROJECT_USER})
 
     # TODO check if lines are already there to avoid duplication
 	run('echo "export WORKON_HOME=$HOME/.virtualenvs" >> /home/%s/.bash_profile' % PROJECT_USER)
