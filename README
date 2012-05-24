@@ -1,6 +1,11 @@
 The Django gunicorn fabfile project
 ======================================
 
+Latest changes
+===============
+
+Modified the project directory layout to work with Django 1.4.
+
 This is a bare Django project that includes a Fabric file, commonly known as a fabfile, to setup an Ubuntu 11.10 server with the following environment:
 
 - Nginx to serve static files,
@@ -19,6 +24,8 @@ The fabfile has been tested with Fabric >= 1.3.1.
 
 How to use
 ===============
+
+** TODO ** This part needs updating for working with the new functions on the fabfile. See instructions on top of fabfile.py for now.
 
 The two hosts interacting in the basic usage scenario are the deployer, which is the GNU/Linux workstation on which you will run the fabfile, and the target, which is the GNU/Linux server where the Django project will be setup when the fabfile is run. There are other hosts involved, like the one hosting the git repository with your code, but the deployer and the target are the ones where you have full control, including ssh root access.
 
@@ -53,8 +60,6 @@ There are some important points to notice in the local_settings_template.py. DEB
 
 Modify INSTALLED_APPS as needed. For now the fabfile doesn't support running Django's syncdb and supposes you have a database already setup for the apps that you need.
 
-Finally, ROOT_URLCONF is set to simply 'urls', to avoid depending on the project name. Django shouldn't have any problems with this.
-
 6. Change to your project's directory and edit the required constants in fabfile.py; they are below the comment #### START OF CONFIGURATION ####. There are some comments to guide you.
 
 7. Now it's time to run the fabfile to start setting up the target. Notice that user and host in the following commands refer to the user with sudo permission in the target and that host is the IP or hostname (public or as defined in your deployer's /etc/hosts).
@@ -88,19 +93,15 @@ The first parameter is the commit message that will be used for all repositories
 TODO
 ==========
 
-- A function to clean an interrupted setup.
 - Put fabfile settings in a separe module or probably use the project's local_settings.py.
 - Distribute via PyPi.
 - Make the project generic to work with other versions of Ubuntu and Python.
 - Add support for other version control systems.
-- Add support for PyPi mirrors in setup_server function. 
-- Avoid duplication of virtualenvwrapper lines .basrc and .bash_profile.
 - Support for Django test framework.
 - setup git user and email with git config before starting with commit/push, using
   git config --global user.name "Your Name"
   git config --global user.email you@example.com
 - Support for easier commit and push in the deploy function.
-- Support for easily adding and setting up Django applications.
 - Support for syncdb and database distribution. Is it needed or better left to do manually?
 - Memcached setup.
 - Varnish setup.
