@@ -135,28 +135,17 @@ def debug(x=''):
     Simple debugging of some functions
     """
     project_settings = get_settings()
-    print project_settings.ROOT_URLCONF
-    print project_settings.TIME_ZONE
     print project_settings.EXTRA_APPS
 
 def get_settings():
     import os
     import sys
 
-    # gets project name, which is the directory where settings is
-    for dirpath, dirnames, filenames in os.walk('.'):
-        if dirpath != '.':
-            dirname = dirpath.split('/')[1]
-            if dirname not in ('docs', 'deploy', 'static', 'templates', '.git') and 'settings.py' in filenames:
-                settings_module = '%s.settings' % dirname
-
-    django.settings_module(settings_module)
-
     root_dir = os.path.dirname(__file__)
     sys.path.insert(0, root_dir)
 
-    from django.conf import settings
-    return settings
+    import fabconfig
+    return fabconfig
 
 def add_user(user):
     sudo('useradd %s -s /bin/bash -m' % user)
@@ -324,6 +313,7 @@ def put_config_files(*args):
             sed(projects[key]['run-project'], '^PROJECTDIR.*', 'PROJECTDIR=%(dir)s' % projects[key]) 
             sed(projects[key]['run-project'], '^PROJECTENV.*', 'PROJECTENV=/home/%(user)s/.virtualenvs/%(name)s' % projects[key]) 
 
+            # TODO figure out how to handle redirection from non-www to www versions passing the port, if needed.
             sed('etc/nginx/sites-available/%(django-project)s' % projects[key], 'listen.*', 'listen %(ip)s:%(port)s;' % projects[key]) 
             sed('etc/nginx/sites-available/%(django-project)s' % projects[key], 'proxy_pass http.*', 'proxy_pass http://%(gunicorn_bind_ip)s:%(gunicorn_bind_port)s/;' % projects[key]) 
             sed('etc/nginx/sites-available/%(django-project)s' % projects[key], 'example\.com', '%(domain)s' % projects[key]) 
@@ -393,7 +383,7 @@ def quickstart(*args, **kwargs):
 
     setup(*args, **kwargs)
     update_site(*args, **kwargs)
-    start_site(*args, **kwargs)
+    restart_site(*args, **kwargs)
 
 def setup(*args, **kwargs):
     """
@@ -424,7 +414,9 @@ def start_site(env='development', **kwargs):
     if result.failed:
         warn( "%s already running." % project['name'])
 
-def stop_site(env='development'):
+    print "Site ready to rock at http://%s:%s" % (project['domain'], project['port'])
+
+def stop_site(env='development', **kwargs):
     sudo('service nginx stop')
 
     projects = build_projects_vars()
@@ -435,7 +427,7 @@ def stop_site(env='development'):
     if result.failed:
         warn( "%s was not running." % project['name'])
 
-def restart_site(env='development'):
+def restart_site(env='development', **kwargs):
     stop_site(env)
     start_site(env)
 
