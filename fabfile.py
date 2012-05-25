@@ -1,8 +1,42 @@
 """
 This Fabric script allows you setup an Ubuntu 11.10 server to run a Django project with Nginx and gunicorn.
 
-For detailed instructions see README in the project's root.
+How to use
+===============
 
+1. This step is optional. If you still haven't created a user to run the project you can start with an existing user to create one.
+$ fab -H existing_user@host add_user:user
+That will create user with a random password and sudo permissions.
+
+2. Fill configuration details in settings.py.
+
+3. Run setup to install the server applications, create virtualenvs, install basic Python packages and configuration files for one or more environments.
+Start creating a development environment on the development box.
+Then create a staging environment, ideally on one of the production boxes, as it will be used to get code from repositories and then rsync to production.
+$ fab -H user@host setup:production,staging,development,mirror=y
+
+4. Install or update project and apps for one environment.
+$ fab -H user@host update_site:env=production,update_settings=y,upgrade_apps=y
+
+5. To start, stop or restart the site on one environment.
+$ fab -H user@host start_site:env=production
+$ fab -H user@host stop_site:env=production
+$ fab -H user@host restart_site:env=production
+
+6. Work on the development environment and use this to commit from time to time.
+
+$ fab -H user@host commit:env=development,message='commit message and escaping comma\, this way',push=n,test=y
+
+Parameters:
+env: 'production', 'staging', 'development'.
+mirror: 'y', 'n'. Default: 'n'.
+
+Development can be accessed at http://PROJECT_DOMAIN_DEVELOPMENT:development_port
+Staging can be accessed at http://PROJECT_DOMAIN_STAGING:staging_port
+Production can be accessed at http://PROJECT_DOMAIN:port
+
+For more detailed instructions see README in The-Django-gunicorn-fabfile-project.
+https://github.com/alexisbellido/The-Django-gunicorn-fabfile-project
 """
 
 from fabric.api import run, sudo, hosts, settings, abort, warn, cd, local, put, get, env
