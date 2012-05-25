@@ -135,3 +135,9 @@ Latest changes
 ===============
 
 Modified the project directory layout to work with Django 1.4.
+
+Common erorrs
+===============
+
+That fabfile aborts and I see "ImportError: No module named django.conf."
+This fabfile needs to run from a Python environment with Django 1.4 and Fabric installed while in the project's directory, this means you should git clone your projectfirst, include the fabfile with its configuration in it and run from there. You may need to deactivate the virtualenv and run workon to get into it after installing Django and Fabric to make sure the virtualenv is correctly added to sys.path.
