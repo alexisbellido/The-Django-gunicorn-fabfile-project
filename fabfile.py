@@ -1,32 +1,8 @@
 """
-This Fabric script allows you setup an Ubuntu 11.10 server to run a Django 1.4 project with Nginx and gunicorn.
+This Fabric script allows you setup an Ubuntu 11.10 server to run a Django project with Nginx and gunicorn.
 
 For detailed instructions see README in the project's root.
 
-1. This step is optional. If you still haven't created a user to run the project you can start with an existing user to create one.
-$ fab -H existing_user@host add_user:user
-That will create user with a random password and sudo permissions.
-
-2. Run setup to install the server applications, create virtualenvs, install basic Python packages and configuration files for one or more environments.
-Start creating a development environment on the development box.
-Then create a staging environment, ideally on one of the production boxes, as it will be used to get code from repositories and then rsync to production.
-$ fab -H user@host setup:production,staging,development,mirror=y
-
-3. Install or update project and apps for one environment.
-$ fab -H user@host update_site:env=production,update_settings=y,upgrade_apps=y
-
-4. To start, stop or restart the site on one environment.
-$ fab -H user@host start_site:env=production
-$ fab -H user@host stop_site:env=production
-$ fab -H user@host restart_site:env=production
-
-Parameters:
-env: 'production', 'staging', 'development'.
-mirror: 'y', 'n'. Default: 'n'.
-
-Development can be accessed at http://PROJECT_DOMAIN_DEVELOPMENT:development_port
-Staging can be accessed at http://PROJECT_DOMAIN_STAGING:staging_port
-Production can be accessed at http://PROJECT_DOMAIN:port
 """
 
 from fabric.api import run, sudo, hosts, settings, abort, warn, cd, local, put, get, env
@@ -35,157 +11,61 @@ from fabric.contrib.files import append as fabappend
 from fabric.contrib.console import confirm
 from fabric.utils import warn
 from fabric.context_managers import hide
+from fabric.contrib import django
 
 import string, random
 
-#### START OF CONFIGURATION ####
-
-# DO NOT USE TRAILING SLASH AND USE UNDERSCORES IN DIRECTORIES TO MIMIC django-admin.py starproject.
-PROJECT_USER = 'alexis'
-
-PROJECT_NAME = 'django_gunicorn_project' # Used for upstart script and virtualenv
-PROJECT_DESCRIPTIVE_NAME = 'The Django gunicorn Project' # Used as description in upstart script
-
-# with the new Django 1.4 project layout there's an inner project directory at PROJECT_DIR/PROJECT_INNER_DIR
-PROJECT_DIR = '/home/user/django_gunicorn_project'
-PROJECT_INNER_DIR = 'django_gunicorn_project'
-PROJECT_LOGDIR = '/home/user/logs/django_gunicorn_project'
-PROJECT_SCRIPT_NAME = 'run-' + PROJECT_NAME
-
-PROJECT_DOMAIN = 'example.com'
-PROJECT_DOMAIN_STAGING = 'staging.example.com'
-PROJECT_DOMAIN_DEVELOPMENT = 'development.example.com'
-
-# This will be in local, outside of version control, and should use DEBUG conditionals for switching between development/staging and production settings,
-# see local_settings_template.py (which is not used by the project) for example.
-PROJECT_SETTINGS_PATH = '/home/user/djsettings/django_gunicorn_project_local_settings.py'
-
-PROJECT_GUNICORN_LOGLEVEL = 'info'
-PROJECT_GUNICORN_NUM_WORKERS = 3
-PROJECT_GUNICORN_BIND_IP = '127.0.0.1'
-PROJECT_GUNICORN_BIND_PORT = '8000'
-
-PROJECT_NGINX_IP = '192.168.0.185'
-PROJECT_NGINX_PORT = '80'
-
-PROJECT_NGINX_IP_STAGING = '192.168.0.185'
-PROJECT_NGINX_PORT_STAGING = '81'
-
-PROJECT_NGINX_IP_DEVELOPMENT = '192.168.0.185'
-PROJECT_NGINX_PORT_DEVELOPMENT = '82'
-
-# Some of these values are shared by development when not specified here, update build_projects_var function if needed
-PROJECT_GUNICORN_LOGLEVEL_STAGING = 'debug'
-PROJECT_GUNICORN_NUM_WORKERS_STAGING = 3
-PROJECT_GUNICORN_BIND_IP_STAGING = '127.0.0.1'
-PROJECT_GUNICORN_BIND_PORT_STAGING = '8001'
-
-PROJECT_GUNICORN_BIND_PORT_DEVELOPMENT = '8002'
-
-PROJECT_LOG_GUNICORN = 'gunicorn.log'
-PROJECT_LOG_NGINX_ACCESS = 'nginx-access.log'
-PROJECT_LOG_NGINX_ERROR = 'nginx-error.log'
-
-PROJECT_REPO_TYPE = 'git'
-PROJECT_REPO_URL = 'git@github.com:user/project.git'
-
-EXTRA_APPS = (
-    {
-        'name': 'someapp', 
-        'production': {'type': 'git', 'source': 'git+ssh://user@host/home/user/someapp.git'},
-        'staging': {'type': 'git', 'source': 'git+ssh://user@host/home/user/someapp.git'},
-        'development': {'type': 'git', 'source': 'git+ssh://user@host/home/user/someapp.git'},
-    },
-    {
-        'name': 'anotherapp', 
-        'production': {'type': 'editable', 'source': '/home/user/anotherapp'},
-        'staging': {'type': 'editable', 'source': '/home/user/anotherapp'},
-        'development': {'type': 'editable', 'source': '/home/user/anotherapp'},
-    },
-)
-
-# Web servers should be setup one by one.
-# Public ip and port to be used by Nginx will be passed for each web server in setup_nginx.
-
-UBUNTU_PACKAGES=('man',
-                 'manpages',
-                 'git-core',
-                 'nginx',
-                 'python-pip',
-                 'postgresql-server-dev-9.1',
-                 'postgresql-client-9.1',
-                 'sqlite3',
-                 'python-dev'
-                )
-
-PIP_PACKAGES=('virtualenv',
-              'virtualenvwrapper',
-              'Fabric',
-             )
-
-PIP_VENV_PACKAGES=('psycopg2',
-                   'ipython',
-                   'yolk',
-                   'Django==1.4',
-                   'gunicorn',
-                   'Fabric',
-                   'South',
-                   'Sphinx'
-                   'docutils',
-                  )
-
-MIRROR_URL = '-i http://d.pypi.python.org/simple'
-
-#### END OF CONFIGURATION ####
-
 def build_projects_vars():
+    settings = get_settings()
     projects = {'production': {}, 'staging': {}, 'development': {}}
 
-    projects['production']['user'] = projects['staging']['user'] = projects['development']['user'] = PROJECT_USER
-    projects['production']['inner_dir'] = projects['staging']['inner_dir'] = projects['development']['inner_dir'] = PROJECT_INNER_DIR
-    projects['production']['repo_url'] = projects['staging']['repo_url'] = projects['development']['repo_url'] = PROJECT_REPO_URL
+    projects['production']['user'] = projects['staging']['user'] = projects['development']['user'] = settings.PROJECT_USER
+    projects['production']['inner_dir'] = projects['staging']['inner_dir'] = projects['development']['inner_dir'] = settings.PROJECT_INNER_DIR
+    projects['production']['repo_url'] = projects['staging']['repo_url'] = projects['development']['repo_url'] = settings.PROJECT_REPO_URL
 
-    projects['production']['domain'] = PROJECT_DOMAIN
-    projects['staging']['domain'] = PROJECT_DOMAIN_STAGING
-    projects['development']['domain'] = PROJECT_DOMAIN_DEVELOPMENT
+    projects['production']['settings_path'] = projects['staging']['settings_path'] = projects['development']['settings_path'] = settings.PROJECT_SETTINGS_PATH
 
-    projects['production']['gunicorn_loglevel'] = PROJECT_GUNICORN_LOGLEVEL
-    projects['staging']['gunicorn_loglevel'] = projects['development']['gunicorn_loglevel'] = PROJECT_GUNICORN_LOGLEVEL_STAGING
+    projects['production']['domain'] = settings.PROJECT_DOMAIN
+    projects['staging']['domain'] = settings.PROJECT_DOMAIN_STAGING
+    projects['development']['domain'] = settings.PROJECT_DOMAIN_DEVELOPMENT
 
-    projects['production']['gunicorn_num_workers'] = PROJECT_GUNICORN_NUM_WORKERS
-    projects['staging']['gunicorn_num_workers'] = projects['development']['gunicorn_num_workers'] = PROJECT_GUNICORN_NUM_WORKERS_STAGING
+    projects['production']['gunicorn_loglevel'] = settings.PROJECT_GUNICORN_LOGLEVEL
+    projects['staging']['gunicorn_loglevel'] = projects['development']['gunicorn_loglevel'] = settings.PROJECT_GUNICORN_LOGLEVEL_STAGING
 
-    projects['production']['gunicorn_bind_ip'] = PROJECT_GUNICORN_BIND_IP
-    projects['staging']['gunicorn_bind_ip'] = projects['development']['gunicorn_bind_ip'] = PROJECT_GUNICORN_BIND_IP_STAGING
+    projects['production']['gunicorn_num_workers'] = settings.PROJECT_GUNICORN_NUM_WORKERS
+    projects['staging']['gunicorn_num_workers'] = projects['development']['gunicorn_num_workers'] = settings.PROJECT_GUNICORN_NUM_WORKERS_STAGING
 
-    projects['production']['gunicorn_bind_port'] = PROJECT_GUNICORN_BIND_PORT
-    projects['staging']['gunicorn_bind_port'] = PROJECT_GUNICORN_BIND_PORT_STAGING
-    projects['development']['gunicorn_bind_port'] = PROJECT_GUNICORN_BIND_PORT_DEVELOPMENT
+    projects['production']['gunicorn_bind_ip'] = settings.PROJECT_GUNICORN_BIND_IP
+    projects['staging']['gunicorn_bind_ip'] = projects['development']['gunicorn_bind_ip'] = settings.PROJECT_GUNICORN_BIND_IP_STAGING
+
+    projects['production']['gunicorn_bind_port'] = settings.PROJECT_GUNICORN_BIND_PORT
+    projects['staging']['gunicorn_bind_port'] = settings.PROJECT_GUNICORN_BIND_PORT_STAGING
+    projects['development']['gunicorn_bind_port'] = settings.PROJECT_GUNICORN_BIND_PORT_DEVELOPMENT
 
     for key in projects.keys():
-        projects[key]['name'] = suffix(PROJECT_NAME, key)
-        projects[key]['descriptive_name'] = suffix(PROJECT_DESCRIPTIVE_NAME, key)
-        projects[key]['dir'] = suffix(PROJECT_DIR, key)
+        projects[key]['name'] = suffix(settings.PROJECT_NAME, key)
+        projects[key]['descriptive_name'] = suffix(settings.PROJECT_DESCRIPTIVE_NAME, key)
+        projects[key]['dir'] = suffix(settings.PROJECT_DIR, key)
         projects[key]['run-project'] = suffix('run-project', key)
         projects[key]['django-project'] = suffix('django-project', key)
-        projects[key]['logdir'] = suffix(PROJECT_LOGDIR, key)
-        projects[key]['log_gunicorn'] = PROJECT_LOG_GUNICORN
-        projects[key]['log_nginx_access'] = PROJECT_LOG_NGINX_ACCESS
-        projects[key]['log_nginx_error'] = PROJECT_LOG_NGINX_ERROR
-        projects[key]['script_name'] = suffix(PROJECT_SCRIPT_NAME, key)
+        projects[key]['logdir'] = suffix(settings.PROJECT_LOGDIR, key)
+        projects[key]['log_gunicorn'] = settings.PROJECT_LOG_GUNICORN
+        projects[key]['log_nginx_access'] = settings.PROJECT_LOG_NGINX_ACCESS
+        projects[key]['log_nginx_error'] = settings.PROJECT_LOG_NGINX_ERROR
+        projects[key]['script_name'] = suffix(settings.PROJECT_SCRIPT_NAME, key)
         projects[key]['gunicorn_bind_address'] = '%s:%s' % (projects[key]['gunicorn_bind_ip'], projects[key]['gunicorn_bind_port'])
 
         if key == 'production':
-            projects[key]['ip'] = PROJECT_NGINX_IP
-            projects[key]['port'] = PROJECT_NGINX_PORT
+            projects[key]['ip'] = settings.PROJECT_NGINX_IP
+            projects[key]['port'] = settings.PROJECT_NGINX_PORT
 
         if key == 'staging':
-            projects[key]['ip'] = PROJECT_NGINX_IP_STAGING
-            projects[key]['port'] = PROJECT_NGINX_PORT_STAGING
+            projects[key]['ip'] = settings.PROJECT_NGINX_IP_STAGING
+            projects[key]['port'] = settings.PROJECT_NGINX_PORT_STAGING
 
         if key == 'development':
-            projects[key]['ip'] = PROJECT_NGINX_IP_DEVELOPMENT
-            projects[key]['port'] = PROJECT_NGINX_PORT_DEVELOPMENT
+            projects[key]['ip'] = settings.PROJECT_NGINX_IP_DEVELOPMENT
+            projects[key]['port'] = settings.PROJECT_NGINX_PORT_DEVELOPMENT
 
     return projects
 
@@ -212,30 +92,33 @@ def suffix(string, suffix, sep = '_'):
         suffixed = string + sep + suffix
     return suffixed
 
-def debug():
+def debug(x=''):
     """
     Simple debugging of some functions
     """
-    print 'testing'
-    # TODO check if lines are already there to avoid duplication 
-    # see http://docs.fabfile.org/en/1.4.1/api/contrib/files.html?highlight=sed#fabric.contrib.files.contains
+    settings = get_settings()
+    print settings.ROOT_URLCONF
+    print settings.TIME_ZONE
+    print settings.EXTRA_APPS
 
-    if not contains('/home/alexis/.bashrc', 'export WORKON_HOME'):
-        print 'not contains'
-    #export WORKON_HOME=/home/alexis/.virtualenvs
-    #source /usr/local/bin/virtualenvwrapper.sh
-    #run('echo "export WORKON_HOME=$HOME/.virtualenvs" >> /home/%s/.bashrc' % PROJECT_USER)
-    #run('echo "source /usr/local/bin/virtualenvwrapper.sh" >> /home/%s/.bashrc' % PROJECT_USER)
+def get_settings():
+    import os
+    import sys
 
-    #projects = build_projects_vars()
-    ##dirs = build_parameters_list(projects, 'logdir')
-    ##print dirs
+    # gets project name, which is the directory where settings is
+    for dirpath, dirnames, filenames in os.walk('.'):
+        if dirpath != '.':
+            dirname = dirpath.split('/')[1]
+            if dirname not in ('docs', 'deploy', 'static', 'templates', '.git') and 'settings.py' in filenames:
+                settings_module = '%s.settings' % dirname
 
-    #for key in projects.keys():
-    #    print "==="
-    #    print key
-    #    for subkey in projects[key].keys():
-    #        print subkey, ": ", projects[key][subkey]
+    django.settings_module(settings_module)
+
+    root_dir = os.path.dirname(__file__)
+    sys.path.insert(0, root_dir)
+
+    from django.conf import settings
+    return settings
 
 def add_user(user):
     sudo('useradd %s -s /bin/bash -m' % user)
@@ -245,21 +128,27 @@ def add_user(user):
     print "Password for %s is %s" % (user, password)
 
 def fix_venv_permission():
+    projects = build_projects_vars()
+    project = projects['development'] # could use any environment as key user is always the same
     with settings(hide('warnings'), warn_only=True):
-        sudo('chown -R %(PROJECT_USER)s:%(PROJECT_USER)s /home/%(PROJECT_USER)s/.virtualenvs' % {'PROJECT_USER': PROJECT_USER})
+        sudo('chown -R %(user)s:%(user)s /home/%(user)s/.virtualenvs' % {'user': project['user']})
 
 def setup_server(mirror=''):
+    settings = get_settings()
+    projects = build_projects_vars()
+    project = projects['development'] # could use any environment as key user is always the same
+
     if mirror == 'y':
-        mirror_url = MIRROR_URL
+        mirror_url = settings.MIRROR_URL
     else:
         mirror_url = ''
 
-    for p in UBUNTU_PACKAGES:
+    for p in settings.UBUNTU_PACKAGES:
         sudo('apt-get -y install %s' % p)
 
     sudo('pip install pip --upgrade %s' % mirror_url)
     
-    for p in PIP_PACKAGES:
+    for p in settings.PIP_PACKAGES:
         sudo('sudo pip install %s %s' % (p, mirror_url))
 
     # fixes Warning: cannot find svn location for distribute==0.6.16dev-r0
@@ -268,16 +157,17 @@ def setup_server(mirror=''):
     fix_venv_permission()
 
     for file in ('.bash_profile', '.bashrc'):
-        if not contains('/home/%s/%s' % (PROJECT_USER, file), 'export WORKON_HOME'):
-            run('echo "export WORKON_HOME=$HOME/.virtualenvs" >> /home/%s/%s' % (PROJECT_USER, file))
-        if not contains('/home/%s/%s' % (PROJECT_USER, file), 'source /usr/local/bin/virtualenvwrapper.sh'):
-            run('echo "source /usr/local/bin/virtualenvwrapper.sh" >> /home/%s/%s' % (PROJECT_USER, file))
+        if not contains('/home/%s/%s' % (project['user'], file), 'export WORKON_HOME'):
+            run('echo "export WORKON_HOME=$HOME/.virtualenvs" >> /home/%s/%s' % (project['user'], file))
+        if not contains('/home/%s/%s' % (project['user'], file), 'source /usr/local/bin/virtualenvwrapper.sh'):
+            run('echo "source /usr/local/bin/virtualenvwrapper.sh" >> /home/%s/%s' % (project['user'], file))
 
 def setup_django(*args, **kwargs):
+    settings = get_settings()
     projects = build_projects_vars()
     mirror = kwargs.get('mirror','n')
     if mirror == 'y':
-        mirror_url = MIRROR_URL
+        mirror_url = settings.MIRROR_URL
     else:
         mirror_url = ''
 
@@ -291,7 +181,7 @@ def setup_django(*args, **kwargs):
 
         run('mkvirtualenv %s' % projects[key]['name'])
 
-        for p in PIP_VENV_PACKAGES:
+        for p in settings.PIP_VENV_PACKAGES:
             run('workon %s && pip install %s %s' % (projects[key]['name'], p, mirror_url))
 
 def put_settings_files(env='development'):
@@ -301,10 +191,13 @@ def put_settings_files(env='development'):
     projects = build_projects_vars()
     project = projects[env]
     if exists('%(dir)s/%(inner_dir)s' % project):
-        put(PROJECT_SETTINGS_PATH, '%(dir)s/%(inner_dir)s/local_settings.py' % project)
+        put(project['settings_path'], '%(dir)s/%(inner_dir)s/local_settings.py' % project)
         if env == 'production':
             with cd('%(dir)s/%(inner_dir)s' % project):
                 sed('local_settings.py', '^DEBUG = True$', 'DEBUG = False') 
+
+# TODO revisit how the apps are committed and update from production, it may be safer using different
+# repositories or probably branches.
 
 def update_apps(env='development', upgrade_apps='n'):
     """
@@ -314,10 +207,11 @@ def update_apps(env='development', upgrade_apps='n'):
     pip install -e /home/user/anotherapp/
     """
 
+    settings = get_settings()
     projects = build_projects_vars()
     project = projects[env]
 
-    for app in EXTRA_APPS:
+    for app in settings.EXTRA_APPS:
         option = ''
         if app[env]['type'] == 'git' and upgrade_apps == 'y':
             option = '--upgrade'
@@ -425,6 +319,7 @@ def clean(*args, **kwargs):
     fab -H user@host clean:production,staging,development,clean_nginx=y
     """
 
+    settings = get_settings()
     projects = build_projects_vars()
 
     with settings(hide('warnings'), warn_only=True):
@@ -435,7 +330,7 @@ def clean(*args, **kwargs):
             if result.failed:
                 warn( "%(name)s was not running." % projects[key])
 
-            for app in EXTRA_APPS:
+            for app in settings.EXTRA_APPS:
                 run('workon %s && pip uninstall -y %s' % (projects[key]['name'], app['name']))
 
             sudo('rm -rf %(dir)s' % projects[key])
@@ -496,30 +391,46 @@ def restart_site(env='development'):
     stop_site(env)
     start_site(env)
 
-def commit(env='development', commit_message='', push='n'):
+def commit(env='development', message='', push='n', test='y'):
     """
-    run tests, add, commit and push files for the project and extra apps
+    Run tests, add, commit and push files for the project and extra apps.
+    Notice this adds all changed files to git index. This can e replaced by manual git commands if more granularity is needed.
     """
-    run_tests(env)
-    for app in EXTRA_APPS:
-        with settings(hide('warnings'), warn_only=True):
-            print "Committing changes to %s " % app['app_dir']
-            local("cd %s && git add . && git commit -m '%s'" % (app['app_dir'], commit_message))
-            if push == 'y':
-                local("cd %s && git push" % app['app_dir'])
-            
-    with settings(hide('warnings'), warn_only=True):
-        print "Committing changes to %s " % PROJECT_DIR_STAGING
-        local("cd %s && git add . && git commit -m '%s'" % (PROJECT_DIR_STAGING, commit_message))
-        if push == 'y':
-            local("cd %s && git push" % PROJECT_DIR_STAGING)
 
-def run_tests():
+    settings = get_settings()
+    projects = build_projects_vars()
+    project = projects[env]
+
+    if env != 'production':
+        print "========================================================"
+        print "COMMIT IN %s..." % env.upper()
+        # TODO testing before committing
+        #run_tests(env)
+        for app in settings.EXTRA_APPS:
+            if app[env]['dir'][:len(project['dir'])] == project['dir']:
+                print "\nThe application %s is inside the project directory, no need to commit separately." % app['name']
+            else:
+                with settings(hide('warnings'), warn_only=True):
+                    print "\nCommitting changes for application %s in %s." % (app['name'], app[env]['dir'])
+                    local("cd %s && git add . && git commit -m '%s'" % (app[env]['dir'], message))
+                    if push == 'y':
+                        local("cd %s && git push" % app[env]['dir'])
+
+        with settings(hide('warnings'), warn_only=True):
+            print "\nCommitting changes in the directory project %s." % project['dir']
+            local("cd %s && git add . && git commit -m '%s'" % (project['dir'], message))
+            if push == 'y':
+                local("cd %s && git push" % project['dir'])
+        print "========================================================"
+
+def run_tests(env='development'):
     # TODO test on development, staging and production? I think so
     # TODO allow testing per app, use a parameter
     #run("./manage.py test my_app")
-    with cd(PROJECT_DIR):
-        run('workon %s && python manage.py test' % PROJECT_NAME)
+    projects = build_projects_vars()
+    project = projects[env]
+    with cd(project['dir']):
+        run('workon %s && python manage.py test' % project['dir'])
 
 def deploy(env='development', update_settings='n', upgrade_apps='n'):
     """

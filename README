@@ -1,17 +1,12 @@
 The Django gunicorn fabfile project
 ======================================
 
-Latest changes
-===============
-
-Modified the project directory layout to work with Django 1.4.
-
 This is a bare Django project that includes a Fabric file, commonly known as a fabfile, to setup an Ubuntu 11.10 server with the following environment:
 
 - Nginx to serve static files,
 - gunicorn to serve a Django project,
 - Python 2.7.2, which is the version in Ubuntu 11.10,
-- Django 1.3.1,
+- Django 1.4,
 - PostgreSQL 9.1 and pyscopg2 2.4.1 (which is compatible with the test framework in Django 1.3.1),
 - git,
 - upstart to easily start and stop the Django project.
@@ -25,7 +20,36 @@ The fabfile has been tested with Fabric >= 1.3.1.
 How to use
 ===============
 
-** TODO ** This part needs updating for working with the new functions on the fabfile. See instructions on top of fabfile.py for now.
+1. This step is optional. If you still haven't created a user to run the project you can start with an existing user to create one.
+$ fab -H existing_user@host add_user:user
+That will create user with a random password and sudo permissions.
+
+2. Fill configuration details in settings.py.
+
+3. Run setup to install the server applications, create virtualenvs, install basic Python packages and configuration files for one or more environments.
+Start creating a development environment on the development box.
+Then create a staging environment, ideally on one of the production boxes, as it will be used to get code from repositories and then rsync to production.
+$ fab -H user@host setup:production,staging,development,mirror=y
+
+4. Install or update project and apps for one environment.
+$ fab -H user@host update_site:env=production,update_settings=y,upgrade_apps=y
+
+5. To start, stop or restart the site on one environment.
+$ fab -H user@host start_site:env=production
+$ fab -H user@host stop_site:env=production
+$ fab -H user@host restart_site:env=production
+
+6. Work on the development environment and use this to commit from time to time.
+
+$ fab -H user@host commit:env=development,message='commit message and escaping comma\, this way',push=n,test=y
+
+Parameters:
+env: 'production', 'staging', 'development'.
+mirror: 'y', 'n'. Default: 'n'.
+
+Development can be accessed at http://PROJECT_DOMAIN_DEVELOPMENT:development_port
+Staging can be accessed at http://PROJECT_DOMAIN_STAGING:staging_port
+Production can be accessed at http://PROJECT_DOMAIN:port
 
 The two hosts interacting in the basic usage scenario are the deployer, which is the GNU/Linux workstation on which you will run the fabfile, and the target, which is the GNU/Linux server where the Django project will be setup when the fabfile is run. There are other hosts involved, like the one hosting the git repository with your code, but the deployer and the target are the ones where you have full control, including ssh root access.
 
@@ -36,7 +60,7 @@ To start, follow these steps:
 1. Download or git clone this project to the deployer,
 
 2. Install Fabric, ideally while in a virtualenv, in the deployer  with: 
-pip install Fabric
+$ pip install Fabric
 
 3. Make sure the target is running Ubuntu 11.10 (unless you want to modify the fabfile to make it work with other versions or distributions), openssh-server and has a user with sudo permission. Ideally you should have ssh key authentication working between the deployer and the target, and between the target and the git host.
 
@@ -44,13 +68,131 @@ pip install Fabric
 
 4a. To copy this project to your own Django project, you just need to copy the file fabfile.py and the directory deploy, both in the root of this project, to the root of your project and then add the following at the end of your project's settings.py:
 
+#### START OF FABRIC CONFIGURATION ####
+
 # Use local_settings.py to override settings.
 # This file should be outside of control version. 
 # Copy local_settings_template.py as a starting point.
 try:
-	    from local_settings import *
+    from local_settings import *
 except ImportError:
-	    pass
+    pass
+
+# DO NOT USE TRAILING SLASH AND USE UNDERSCORES IN DIRECTORIES TO MIMIC django-admin.py starproject.
+PROJECT_USER = 'user'
+
+PROJECT_NAME = 'django_gunicorn_project' # Used for upstart script and virtualenv
+PROJECT_DESCRIPTIVE_NAME = 'The Django gunicorn project' # Used as description in upstart script
+
+# with the new Django 1.4 project layout there's an inner project directory at PROJECT_DIR/PROJECT_INNER_DIR
+PROJECT_DIR = '/home/user/django_gunicorn_project'
+PROJECT_INNER_DIR = 'django_gunicorn_project'
+PROJECT_LOGDIR = '/home/alexis/logs/django_gunicorn_project'
+PROJECT_SCRIPT_NAME = 'run-' + PROJECT_NAME
+
+PROJECT_DOMAIN = 'example.com'
+PROJECT_DOMAIN_STAGING = 'staging.example.com'
+PROJECT_DOMAIN_DEVELOPMENT = 'development.example.com'
+
+# This will be in local, outside of version control, and should use DEBUG conditionals for switching between development/staging and production settings,
+# see local_settings_template.py (which is not used by the project) for example.
+PROJECT_SETTINGS_PATH = '/home/user/djsettings/django_gunicorn_project_local_settings.py'
+
+PROJECT_GUNICORN_LOGLEVEL = 'info'
+PROJECT_GUNICORN_NUM_WORKERS = 3
+PROJECT_GUNICORN_BIND_IP = '127.0.0.1'
+PROJECT_GUNICORN_BIND_PORT = '8000'
+
+PROJECT_NGINX_IP = '192.168.0.185'
+PROJECT_NGINX_PORT = '80'
+
+PROJECT_NGINX_IP_STAGING = '192.168.0.185'
+PROJECT_NGINX_PORT_STAGING = '81'
+
+PROJECT_NGINX_IP_DEVELOPMENT = '192.168.0.185'
+PROJECT_NGINX_PORT_DEVELOPMENT = '82'
+
+# Some of these values are shared by development when not specified here, update build_projects_var function if needed
+PROJECT_GUNICORN_LOGLEVEL_STAGING = 'debug'
+PROJECT_GUNICORN_NUM_WORKERS_STAGING = 3
+PROJECT_GUNICORN_BIND_IP_STAGING = '127.0.0.1'
+PROJECT_GUNICORN_BIND_PORT_STAGING = '8001'
+
+PROJECT_GUNICORN_BIND_PORT_DEVELOPMENT = '8002'
+
+PROJECT_LOG_GUNICORN = 'gunicorn.log'
+PROJECT_LOG_NGINX_ACCESS = 'nginx-access.log'
+PROJECT_LOG_NGINX_ERROR = 'nginx-error.log'
+
+PROJECT_REPO_TYPE = 'git'
+PROJECT_REPO_URL = 'git@github.com:user/My-Project.git'
+
+EXTRA_APPS = (
+    {
+        'name': 'someapp', 
+        'production':  {'type': 'git', 
+                        'source': 'git+ssh://user@host/home/user/someapp.git', 
+                        'dir': '/home/user/djapps/someapp',
+                       },
+        'staging':     {'type': 'git', 
+                        'source': 'git+ssh://user@host/home/user/someapp.git', 
+                        'dir': '/home/user/djapps/someapp_staging',
+                       },
+        'development': {'type': 'git', 
+                        'source': 'git+ssh://user@host/home/user/someapp.git', 
+                        'dir': '/home/user/djapps/someapp_development',
+                       },
+    },
+    {
+        'name': 'anotherapp', 
+        'production':  {'type': 'editable', 
+                        'source': '/home/user/django_gunicorn_project/django-someapp',
+                        'dir': '/home/user/django_gunicorn_project/django-someapp',
+                       },
+        'staging':     {'type': 'editable', 
+                        'source': '/home/user/django_gunicorn_project_staging/django-someapp',
+                        'dir': '/home/user/django_gunicorn_project_staging/django-someapp',
+                       },
+        'development': {'type': 'editable', 
+                        'source': '/home/user/django_gunicorn_project_development/django-someapp',
+                        'dir': '/home/user/django_gunicorn_project_development/django-someapp',
+                       },
+    },
+)
+
+# Web servers should be setup one by one.
+# Public ip and port to be used by Nginx will be passed for each web server in setup_nginx.
+
+UBUNTU_PACKAGES=('man',
+                 'manpages',
+                 'git-core',
+                 'nginx',
+                 'python-pip',
+                 'postgresql-server-dev-9.1',
+                 'postgresql-client-9.1',
+                 'sqlite3',
+                 'python-dev'
+                )
+
+PIP_PACKAGES=('virtualenv',
+              'virtualenvwrapper',
+              'Fabric',
+             )
+
+PIP_VENV_PACKAGES=('psycopg2',
+                   'ipython',
+                   'yolk',
+                   'Django==1.4',
+                   'gunicorn',
+                   'Fabric',
+                   'South',
+                   'Sphinx'
+                   'docutils',
+                  )
+
+MIRROR_URL = '-i http://d.pypi.python.org/simple'
+
+#### END OF CONFIGURATION ####
 
 4b. To start building your project on top of this one change the SECRET_KEY in settings.py to make it unique for your project and proceed to step 5.
 
@@ -60,40 +202,49 @@ There are some important points to notice in the local_settings_template.py. DEB
 
 Modify INSTALLED_APPS as needed. For now the fabfile doesn't support running Django's syncdb and supposes you have a database already setup for the apps that you need.
 
-6. Change to your project's directory and edit the required constants in fabfile.py; they are below the comment #### START OF CONFIGURATION ####. There are some comments to guide you.
+6. Change to your project's directory and edit the required constants in settings.py; they are below the comment #### START  CONFIGURATION ####. There are some comments to guide you.
 
-7. Now it's time to run the fabfile to start setting up the target. Notice that user and host in the following commands refer to the user with sudo permission in the target and that host is the IP or hostname (public or as defined in your deployer's /etc/hosts).
+How to run the fabfile
+------------------------
 
-Still in your project's directory, decide which IP addresses and ports you will use for staging and production. The IP is usually the same for both. Production will usually run on port 80 and staging can be anywhere else; I like putting it on 81. You can omit the staging parameters and now staging site will be enabled, but still a staging directory will be created for the project files. The mirror parameter is used if you want to use one of PyPi's mirrors.
+1. This step is optional. If you still haven't created a user to run the project you can start with an existing user to create one.
+$ fab -H existing_user@host add_user:user
+That will create user with a random password and sudo permissions.
 
-Run these two commands on the deployer with the appropiate user, host, IP addresses and ports for the target:
+2. Fill configuration details in settings.py.
 
-fab -H user@host setup:mirror=y,ip=192.168.0.181,port=80,staging_ip=192.168.0.181,staging_port=81
-fab -H user@host start_project:update_settings=y,staging=y
+3. Run setup to install the server applications, create virtualenvs, install basic Python packages and configuration files for one or more environments.
+Start creating a development environment on the development box.
+Then create a staging environment, ideally on one of the production boxes, as it will be used to get code from repositories and then rsync to production.
+$ fab -H user@host setup:production,staging,development,mirror=y
+
+4. Install or update project and apps for one environment.
+$ fab -H user@host update_site:env=production,update_settings=y,upgrade_apps=y
+
+5. To start, stop or restart the site on one environment.
+$ fab -H user@host start_site:env=production
+$ fab -H user@host stop_site:env=production
+$ fab -H user@host restart_site:env=production
+
+6. Work on the development environment and use this to commit from time to time.
+
+$ fab -H user@host commit:env=development,message='commit message and escaping comma\, this way',push=n,test=y
+
+Parameters:
+env: 'production', 'staging', 'development'.
+mirror: 'y', 'n'. Default: 'n'.
+
+Development can be accessed at http://PROJECT_DOMAIN_DEVELOPMENT:development_port
+Staging can be accessed at http://PROJECT_DOMAIN_STAGING:staging_port
+Production can be accessed at http://PROJECT_DOMAIN:port
 
 Keep an eye on the prompt for the sudo password and, possibly, the git repository password. These should appear right after you run each command so you can enter the password and go grab a coffee while the process works. The first command, setup, usually takes longer (I counted 15 minutes in my test servers); the start_project command depends on how big your git repository, for a medium project is very quick.
 
 That should be all.
 
-Staging can be accessed at http://PROJECT_DOMAIN_STAGING:staging_port
-Production can be accessed at http://PROJECT_DOMAIN:port
-
-staging_port and port are the same used in the commands above. PROJECT_DOMAIN and PROJECT_DOMAIN_STAGING are defined in the fabfile configuration.
-
-8. If you need to start all over again and removing the staging and production environments you can use the clean function:
-
-fab -H user@host clean
-
-9. If you are working with a project and applications hosted in different repositories you will be constantly editing, commiting and pushing files in all of them. For those cases the commit function (git specific for now) will help to simplify the task. Configure EXTRA_APPS with the corresponding names and directories and call the command like this:
-
-fab commit:'the commit message here','y'
-
-The first parameter is the commit message that will be used for all repositories. The second parameter is optional and tells Fabric to push the commit, its default value is no ('n'). The function runs local commands so there's no need to user@host.
-
 TODO
 ==========
 
-- Put fabfile settings in a separe module or probably use the project's local_settings.py.
 - Distribute via PyPi.
 - Make the project generic to work with other versions of Ubuntu and Python.
 - Add support for other version control systems.
@@ -105,3 +256,8 @@ TODO
 - Support for syncdb and database distribution. Is it needed or better left to do manually?
 - Memcached setup.
 - Varnish setup.
+
+Latest changes
+===============
+
+Modified the project directory layout to work with Django 1.4.
